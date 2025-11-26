@@ -34,7 +34,7 @@ Add this to your package's pubspec.yaml file:
 
 ```yaml
 dependencies:
-  rar: ^0.2.0
+  rar: ^0.2.1
 ```
 
 ### Desktop Dependencies
@@ -264,6 +264,64 @@ lib/
     rar_macos.dart            # macOS platform
     rar_windows.dart          # Windows platform
     rar_web.dart              # Web platform
+```
+
+## Testing
+
+The plugin includes comprehensive tests for all platforms.
+
+### Running Tests
+
+Use the test runner script:
+
+```bash
+# Run unit tests only
+./test_runner.sh unit
+
+# Run tests for a specific platform
+./test_runner.sh linux
+./test_runner.sh macos
+./test_runner.sh windows
+./test_runner.sh web
+
+# Run all desktop tests
+./test_runner.sh desktop
+
+# Run all mobile tests
+./test_runner.sh mobile
+
+# Run all tests
+./test_runner.sh all
+```
+
+### Test Structure
+
+```
+test/
+  rar_platform_interface_test.dart  # Platform interface unit tests
+  rar_test.dart                     # Main Rar class unit tests
+example/
+  integration_test/
+    rar_integration_test.dart       # Integration tests for all platforms
+```
+
+## Example App
+
+The example app demonstrates all plugin features across platforms:
+
+- **File picker** for selecting RAR archives
+- **Password support** for encrypted archives
+- **File browser** with tree view for archive contents
+- **Content viewer** supporting:
+  - Images (PNG, JPG, GIF, etc.)
+  - Text files (TXT, JSON, XML, etc.)
+  - Binary files (hex dump view)
+
+Run the example:
+
+```bash
+cd example
+flutter run -d linux    # or macos, windows, chrome, etc.
 ```
 
 ## Contributing

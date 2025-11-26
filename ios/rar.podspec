@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'rar'
-  s.version          = '0.2.0'
+  s.version          = '0.2.1'
   s.summary          = 'Flutter plugin for handling RAR files on iOS.'
   s.description      = <<-DESC
 A Flutter plugin for extracting and listing RAR archive contents on iOS.
