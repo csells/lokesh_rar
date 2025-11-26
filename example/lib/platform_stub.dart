@@ -19,3 +19,6 @@ Future<void> createDirectory(String path) async {}
 
 /// List contents of a directory.
 Future<List<String>> listDirectoryContents(String path) async => [];
+
+/// Load file content as bytes.
+Future<Uint8List?> loadFileContent(String path) async => null;

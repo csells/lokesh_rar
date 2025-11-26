@@ -4,6 +4,15 @@
 // - Android, iOS (mobile)
 // - Linux, macOS, Windows (desktop)
 // - Web
+//
+// Features:
+// - List RAR archive contents
+// - Extract RAR archives
+// - Browse extracted files with file tree
+// - View file contents (images, text, binary)
+// - Password-protected archive support
+
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +21,8 @@ import 'dart:async';
 import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:rar/rar.dart';
+
+import 'file_browser.dart';
 
 // Conditional imports for platform-specific code
 import 'platform_stub.dart'
@@ -35,6 +46,8 @@ class _MyAppState extends State<MyApp> {
   List<String> _fileList = [];
   bool _isProcessing = false;
   String? _passwordInput;
+  String? _lastExtractPath;
+  String? _lastRarFilePath;
 
   @override
   void initState() {
@@ -50,13 +63,10 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<String?> _getDestinationPath() async {
-    // Get platform-appropriate destination directory
     try {
       if (kIsWeb) {
-        // On web, we use a virtual path
         return '/extracted';
       }
-
       final directory = await getApplicationDocumentsDirectory();
       return '${directory.path}/rar_extracted';
     } catch (e) {
@@ -72,11 +82,10 @@ class _MyAppState extends State<MyApp> {
     });
 
     try {
-      // Pick a RAR file
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['rar'],
-        withData: kIsWeb, // On web, we need the file bytes
+        withData: kIsWeb,
       );
 
       if (result == null || result.files.isEmpty) {
@@ -90,7 +99,6 @@ class _MyAppState extends State<MyApp> {
       final file = result.files.single;
       String? filePath = file.path;
 
-      // On web, we need to handle file data differently
       if (kIsWeb) {
         if (file.bytes == null) {
           setState(() {
@@ -99,7 +107,6 @@ class _MyAppState extends State<MyApp> {
           });
           return;
         }
-        // Store file data in virtual file system for web
         storeWebFileData(file.name, file.bytes!);
         filePath = file.name;
       }
@@ -112,11 +119,12 @@ class _MyAppState extends State<MyApp> {
         return;
       }
 
+      _lastRarFilePath = filePath;
+
       setState(() {
         _status = 'Selected: ${file.name}';
       });
 
-      // Get the destination directory
       final extractPath = await _getDestinationPath();
       if (extractPath == null) {
         setState(() {
@@ -126,7 +134,6 @@ class _MyAppState extends State<MyApp> {
         return;
       }
 
-      // Create destination directory if needed (non-web platforms)
       if (!kIsWeb) {
         await createDirectory(extractPath);
       }
@@ -135,7 +142,6 @@ class _MyAppState extends State<MyApp> {
         _status = 'Extracting to $extractPath...';
       });
 
-      // Extract the RAR file
       final extractResult = await Rar.extractRarFile(
         rarFilePath: filePath,
         destinationPath: extractPath,
@@ -143,11 +149,11 @@ class _MyAppState extends State<MyApp> {
       );
 
       if (extractResult['success'] == true) {
+        _lastExtractPath = extractPath;
         setState(() {
           _status = 'Extraction successful: ${extractResult['message']}';
         });
 
-        // List the extracted files
         final files = await listDirectoryContents(extractPath);
         setState(() {
           _fileList = files;
@@ -176,7 +182,6 @@ class _MyAppState extends State<MyApp> {
     });
 
     try {
-      // Pick a RAR file
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['rar'],
@@ -194,7 +199,6 @@ class _MyAppState extends State<MyApp> {
       final file = result.files.single;
       String? filePath = file.path;
 
-      // On web, handle file data differently
       if (kIsWeb) {
         if (file.bytes == null) {
           setState(() {
@@ -215,11 +219,12 @@ class _MyAppState extends State<MyApp> {
         return;
       }
 
+      _lastRarFilePath = filePath;
+
       setState(() {
         _status = 'Listing contents of: ${file.name}';
       });
 
-      // List RAR contents
       final listResult = await Rar.listRarContents(
         rarFilePath: filePath,
         password: _passwordInput,
@@ -287,6 +292,31 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
+  void _openFileBrowser() {
+    if (_fileList.isEmpty) return;
+
+    final root = FileNode.buildTree(
+      _fileList,
+      rootName: _lastRarFilePath?.split('/').last ?? 'Archive',
+    );
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => FileBrowserPage(
+          root: root,
+          title: 'Archive Contents',
+          onLoadContent: _lastExtractPath != null ? _loadFileContent : null,
+        ),
+      ),
+    );
+  }
+
+  Future<Uint8List?> _loadFileContent(String path) async {
+    if (_lastExtractPath == null) return null;
+    final fullPath = '$_lastExtractPath/$path';
+    return await loadFileContent(fullPath);
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -313,21 +343,39 @@ class _MyAppState extends State<MyApp> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Platform info
+                // Platform info card
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(12.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Platform: $_platformInfo',
-                          style: Theme.of(context).textTheme.titleMedium,
+                        Row(
+                          children: [
+                            Icon(
+                              _getPlatformIcon(),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Platform: $_platformInfo',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ],
                         ),
                         if (_passwordInput != null)
-                          Text(
-                            'Password: ****',
-                            style: Theme.of(context).textTheme.bodySmall,
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.lock, size: 16),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Password set',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
                           ),
                       ],
                     ),
@@ -335,7 +383,7 @@ class _MyAppState extends State<MyApp> {
                 ),
                 const SizedBox(height: 16),
 
-                // Status
+                // Status card
                 Card(
                   color: _status.contains('failed') || _status.contains('Error')
                       ? Colors.red.shade50
@@ -344,10 +392,28 @@ class _MyAppState extends State<MyApp> {
                           : null,
                   child: Padding(
                     padding: const EdgeInsets.all(12.0),
-                    child: Text(
-                      _status,
-                      style: Theme.of(context).textTheme.bodyLarge,
-                      textAlign: TextAlign.center,
+                    child: Row(
+                      children: [
+                        Icon(
+                          _status.contains('failed') || _status.contains('Error')
+                              ? Icons.error_outline
+                              : _status.contains('successful')
+                                  ? Icons.check_circle_outline
+                                  : Icons.info_outline,
+                          color: _status.contains('failed') || _status.contains('Error')
+                              ? Colors.red
+                              : _status.contains('successful')
+                                  ? Colors.green
+                                  : null,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _status,
+                            style: Theme.of(context).textTheme.bodyLarge,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -373,6 +439,20 @@ class _MyAppState extends State<MyApp> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
+
+                // Browse button (only visible when files are available)
+                if (_fileList.isNotEmpty)
+                  ElevatedButton.icon(
+                    onPressed: _openFileBrowser,
+                    icon: const Icon(Icons.folder_open),
+                    label: const Text('Browse Files'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.secondary,
+                      foregroundColor: Theme.of(context).colorScheme.onSecondary,
+                    ),
+                  ),
+
                 const SizedBox(height: 16),
 
                 // Processing indicator
@@ -383,9 +463,19 @@ class _MyAppState extends State<MyApp> {
 
                 // File list
                 if (_fileList.isNotEmpty) ...[
-                  Text(
-                    'Files (${_fileList.length}):',
-                    style: Theme.of(context).textTheme.titleMedium,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Files (${_fileList.length}):',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      TextButton.icon(
+                        onPressed: _openFileBrowser,
+                        icon: const Icon(Icons.open_in_new, size: 16),
+                        label: const Text('Open Browser'),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Expanded(
@@ -397,7 +487,7 @@ class _MyAppState extends State<MyApp> {
                           final isDirectory = fileName.endsWith('/');
                           return ListTile(
                             leading: Icon(
-                              isDirectory ? Icons.folder : Icons.insert_drive_file,
+                              isDirectory ? Icons.folder : _getFileIcon(fileName),
                               color: isDirectory ? Colors.amber : Colors.blue,
                             ),
                             title: Text(
@@ -405,18 +495,43 @@ class _MyAppState extends State<MyApp> {
                               style: const TextStyle(fontFamily: 'monospace'),
                             ),
                             dense: true,
+                            onTap: () {
+                              if (!isDirectory && _lastExtractPath != null) {
+                                _openFileBrowser();
+                              }
+                            },
                           );
                         },
                       ),
                     ),
                   ),
                 ] else
-                  const Expanded(
+                  Expanded(
                     child: Center(
-                      child: Text(
-                        'Select a RAR file to list or extract its contents',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.archive,
+                            size: 64,
+                            color: Colors.grey.shade400,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Select a RAR file to list or extract its contents',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey.shade600),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Supports RAR v4 and v5 formats',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.grey.shade400,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -426,5 +541,53 @@ class _MyAppState extends State<MyApp> {
         ),
       ),
     );
+  }
+
+  IconData _getPlatformIcon() {
+    if (kIsWeb) return Icons.web;
+    if (_platformInfo.contains('Android')) return Icons.android;
+    if (_platformInfo.contains('iOS')) return Icons.phone_iphone;
+    if (_platformInfo.contains('Linux')) return Icons.desktop_windows;
+    if (_platformInfo.contains('macOS')) return Icons.laptop_mac;
+    if (_platformInfo.contains('Windows')) return Icons.desktop_windows;
+    return Icons.devices;
+  }
+
+  IconData _getFileIcon(String name) {
+    final ext = name.split('.').last.toLowerCase();
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+      case 'bmp':
+      case 'webp':
+        return Icons.image;
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      case 'doc':
+      case 'docx':
+        return Icons.description;
+      case 'txt':
+      case 'md':
+      case 'json':
+      case 'xml':
+        return Icons.text_snippet;
+      case 'dart':
+      case 'py':
+      case 'js':
+      case 'ts':
+      case 'java':
+      case 'c':
+      case 'cpp':
+        return Icons.code;
+      case 'zip':
+      case 'rar':
+      case 'tar':
+      case 'gz':
+        return Icons.archive;
+      default:
+        return Icons.insert_drive_file;
+    }
   }
 }

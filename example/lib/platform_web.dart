@@ -37,3 +37,8 @@ Future<List<String>> listDirectoryContents(String path) async {
       .toList()
     ..sort();
 }
+
+/// Load file content as bytes from virtual file system.
+Future<Uint8List?> loadFileContent(String path) async {
+  return RarWeb.getFileData(path);
+}

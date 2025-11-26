@@ -1,3 +1,21 @@
+## 0.2.1
+
+### Testing
+* Added unit tests for platform interface (`test/rar_platform_interface_test.dart`)
+* Added unit tests for Rar class (`test/rar_test.dart`)
+* Added integration tests for all platforms (`example/integration_test/`)
+* Added test runner script for cross-platform testing (`test_runner.sh`)
+
+### Example App
+* Added file browser with tree view for archive contents
+* Added file content viewer supporting images, text, and binary (hex dump)
+* Added platform-specific file loading helpers
+
+### Development
+* Added `ffigen.yaml` for optional FFI binding regeneration
+* Updated documentation with FFI best practices
+* Updated README with plugin architecture documentation
+
 ## 0.2.0
 
 Major release adding full desktop and web support:

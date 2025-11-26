@@ -214,6 +214,58 @@ This plugin uses the following libraries:
 | Desktop | [libarchive](https://libarchive.org/) | BSD |
 | Web | [libarchive.js](https://github.com/nicolo-ribaudo/libarchive.js) | MIT |
 
+## Building Native Libraries
+
+This plugin uses native code for RAR extraction. The build system automatically compiles the native libraries when you build your Flutter app.
+
+### Desktop Platforms (FFI)
+
+Desktop platforms use Dart FFI to call native C code compiled with libarchive.
+
+**Linux/macOS/Windows Build Process:**
+1. The native C code is located in `src/rar_native.c`
+2. Build configuration is in platform-specific files:
+   - Linux: `linux/CMakeLists.txt`
+   - macOS: `macos/rar.podspec`
+   - Windows: `windows/CMakeLists.txt`
+3. The native library is automatically built and bundled with your app
+
+**FFI Bindings:**
+
+The FFI bindings in `lib/src/rar_desktop_ffi.dart` are hand-written for better control. If you need to regenerate bindings from the C header, you can use ffigen:
+
+```bash
+dart run ffigen
+```
+
+### Mobile Platforms (MethodChannel)
+
+Mobile platforms use MethodChannel to communicate with native code:
+- **Android**: JUnRar library (Java/Kotlin)
+- **iOS**: UnrarKit library (Objective-C/Swift)
+
+### Web Platform (JS Interop)
+
+The web platform uses JavaScript interop with a WASM-based archive library. The WASM library is loaded from CDN at runtime.
+
+## Plugin Architecture
+
+This plugin follows the federated plugin architecture:
+
+```
+lib/
+  rar.dart                    # Main entry point
+  rar_platform_interface.dart # Abstract platform interface
+  rar_platform_exports.dart   # Platform exports
+  src/
+    rar_method_channel.dart   # Mobile implementation
+    rar_desktop_ffi.dart      # Desktop FFI bindings
+    rar_linux.dart            # Linux platform
+    rar_macos.dart            # macOS platform
+    rar_windows.dart          # Windows platform
+    rar_web.dart              # Web platform
+```
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

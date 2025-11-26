@@ -62,3 +62,16 @@ Future<List<String>> listDirectoryContents(String path) async {
   }).toList()
     ..sort();
 }
+
+/// Load file content as bytes.
+Future<Uint8List?> loadFileContent(String path) async {
+  final file = File(path);
+  if (!await file.exists()) {
+    return null;
+  }
+  try {
+    return await file.readAsBytes();
+  } catch (e) {
+    return null;
+  }
+}
